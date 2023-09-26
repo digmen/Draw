@@ -1,13 +1,59 @@
 import React, { useState, useEffect } from 'react';
+import { db } from './firebaseConfig'; // Импорт Firebase
 import './App.css';
 
 function App() {
   const [grid, setGrid] = useState(createEmptyGrid());
   const [currentColor, setCurrentColor] = useState('red');
   const [colorCounts, setColorCounts] = useState({});
+  const [usedColors, setUsedColors] = useState([]); // Для хранения цветов, которые были использованы
   const [userId, setUserId] = useState(getUserId());
   const [cooldown, setCooldown] = useState(false);
   const [timer, setTimer] = useState(10); // Инициализируем таймер с 10 секундами
+  useEffect(() => {
+    const cellsRef = db.ref('cells');
+
+    cellsRef.on('value', (snapshot) => {
+      const updatedGrid = createEmptyGrid();
+
+      snapshot.forEach((userSnapshot) => {
+        userSnapshot.forEach((cellSnapshot) => {
+          const cellData = cellSnapshot.val();
+          const { row, col, color } = cellData;
+
+          updatedGrid[row][col] = color;
+
+          // Добавляем цвет в список использованных цветов, если его там еще нет
+          if (!usedColors.includes(color)) {
+            setUsedColors((prevUsedColors) => [...prevUsedColors, color]);
+          }
+        });
+      });
+
+      setGrid(updatedGrid);
+    });
+
+    // Отключите обработчик события при размонтировании компонента
+    return () => {
+      cellsRef.off('value');
+    };
+  }, [usedColors]);
+
+  // Загрузка данных о цветах и их использованиях из Firebase
+  useEffect(() => {
+    const colorsRef = db.ref('colors');
+
+    colorsRef.on('value', (snapshot) => {
+      const updatedColorCounts = snapshot.val() || {};
+
+      setColorCounts(updatedColorCounts);
+    });
+
+    // Отключите обработчик события при размонтировании компонента
+    return () => {
+      colorsRef.off('value');
+    };
+  }, []);
 
   function getUserId() {
     let userId = localStorage.getItem('userId');
@@ -37,6 +83,20 @@ function App() {
     }
   }, [cooldown, timer]);
 
+  useEffect(() => {
+    const colorsRef = db.ref('colors');
+
+    colorsRef.on('value', (snapshot) => {
+      const updatedColorCounts = snapshot.val() || {};
+      setColorCounts(updatedColorCounts);
+    });
+
+    // Отключите обработчик события при размонтировании компонента
+    return () => {
+      colorsRef.off('value');
+    };
+  }, [setColorCounts]); // Добавьте setColorCounts в массив зависимостей
+
   function createEmptyGrid() {
     const rows = 50;
     const cols = 50;
@@ -63,6 +123,17 @@ function App() {
         ...prevCounts,
         [currentColor]: (prevCounts[currentColor] || 0) + 1,
       }));
+
+      setCooldown(true);
+      db.ref(`cells/${userId}`).push({
+        row,
+        col,
+        color: currentColor,
+      });
+
+      db.ref(`colors/${currentColor}`).transaction((currentCount) => {
+        return (currentCount || 0) + 1;
+      });
 
       setCooldown(true);
     }
@@ -93,31 +164,6 @@ function App() {
     'violet',
   ];
 
-  const db = firebase.database();
-  const colorsRef = db.ref('colors'); // Создайте ссылку на узел в базе данных
-
-  function updateColor(row, col, color) {
-    colorsRef.child(`${row}_${col}`).set(color);
-  }
-
-  // Создайте слушателя для узла colors
-  colorsRef.on('child_changed', (snapshot) => {
-    const { key, val } = snapshot;
-    const [row, col] = key.split('_');
-
-    // Обновите ваш интерфейс, чтобы отобразить новый цвет для клетки в позиции row, col
-  });
-
-  // Читайте данные из Firebase и инициализируйте ваш интерфейс
-  colorsRef.once('value', (snapshot) => {
-    snapshot.forEach((childSnapshot) => {
-      const { key, val } = childSnapshot;
-      const [row, col] = key.split('_');
-
-      // Используйте val (цвет) для установки цвета клетки в позиции row, col
-    });
-  });
-
   return (
     <div className="App">
       <div id="color-buttons">
@@ -131,7 +177,7 @@ function App() {
       </div>
       <div id="content-container">
         <div id="color-counts">
-          {rainbowColors.map((color, index) => (
+          {usedColors.map((color, index) => (
             <p key={index}>
               {color}: {colorCounts[color] || 0}
             </p>
