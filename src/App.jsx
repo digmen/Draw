@@ -6,15 +6,42 @@ function App() {
   const [grid, setGrid] = useState(createEmptyGrid());
   const [currentColor, setCurrentColor] = useState('red');
   const [colorCounts, setColorCounts] = useState({});
-  const [usedColors, setUsedColors] = useState([]); // Для хранения цветов, которые были использованы
+  const [usedColors, setUsedColors] = useState(new Set()); // Для хранения цветов, которые были использованы
   const [userId, setUserId] = useState(getUserId());
   const [cooldown, setCooldown] = useState(false);
-  const [timer, setTimer] = useState(10); // Инициализируем таймер с 10 секундами
+  const [timer, setTimer] = useState(
+    parseInt(localStorage.getItem('timer')) || 0
+  );
+  const [selectedColor, setSelectedColor] = useState('');
+
+  useEffect(() => {
+    const timerFromStorage = localStorage.getItem('timer'); // Получаем значение таймера из localStorage
+    if (timerFromStorage !== null) {
+      setTimer(parseInt(timerFromStorage)); // Устанавливаем таймер из localStorage
+    }
+  }, []);
+
+  useEffect(() => {
+    if (timer > 0 && cooldown) {
+      const interval = setInterval(() => {
+        setTimer((prevTimer) => {
+          localStorage.setItem('timer', prevTimer - 1);
+          return prevTimer - 1;
+        });
+      }, 1000);
+
+      return () => {
+        clearInterval(interval);
+      };
+    }
+  }, [timer, cooldown]);
+
   useEffect(() => {
     const cellsRef = db.ref('cells');
 
     cellsRef.on('value', (snapshot) => {
       const updatedGrid = createEmptyGrid();
+      const updatedUsedColors = new Set();
 
       snapshot.forEach((userSnapshot) => {
         userSnapshot.forEach((cellSnapshot) => {
@@ -23,33 +50,27 @@ function App() {
 
           updatedGrid[row][col] = color;
 
-          // Добавляем цвет в список использованных цветов, если его там еще нет
-          if (!usedColors.includes(color)) {
-            setUsedColors((prevUsedColors) => [...prevUsedColors, color]);
-          }
+          updatedUsedColors.add(color);
         });
       });
 
       setGrid(updatedGrid);
+      setUsedColors(updatedUsedColors);
     });
 
-    // Отключите обработчик события при размонтировании компонента
     return () => {
       cellsRef.off('value');
     };
-  }, [usedColors]);
+  }, []);
 
-  // Загрузка данных о цветах и их использованиях из Firebase
   useEffect(() => {
     const colorsRef = db.ref('colors');
 
     colorsRef.on('value', (snapshot) => {
       const updatedColorCounts = snapshot.val() || {};
-
       setColorCounts(updatedColorCounts);
     });
 
-    // Отключите обработчик события при размонтировании компонента
     return () => {
       colorsRef.off('value');
     };
@@ -65,25 +86,6 @@ function App() {
   }
 
   useEffect(() => {
-    if (cooldown) {
-      const interval = setInterval(() => {
-        setTimer((prevTimer) => prevTimer - 1); // Уменьшаем таймер каждую секунду
-      }, 1000);
-
-      // Когда таймер достигнет 0, сбрасываем охлаждение и сбрасываем таймер
-      if (timer === 0) {
-        setCooldown(false);
-        setTimer(10); // Сброс таймера обратно на 10 секунд
-      }
-
-      // Очистка интервала при размонтировании компонента
-      return () => {
-        clearInterval(interval);
-      };
-    }
-  }, [cooldown, timer]);
-
-  useEffect(() => {
     const colorsRef = db.ref('colors');
 
     colorsRef.on('value', (snapshot) => {
@@ -91,15 +93,14 @@ function App() {
       setColorCounts(updatedColorCounts);
     });
 
-    // Отключите обработчик события при размонтировании компонента
     return () => {
       colorsRef.off('value');
     };
-  }, [setColorCounts]); // Добавьте setColorCounts в массив зависимостей
+  }, [setColorCounts]);
 
   function createEmptyGrid() {
-    const rows = 50;
-    const cols = 50;
+    const rows = 127;
+    const cols = 134;
     const emptyGrid = [];
 
     for (let i = 0; i < rows; i++) {
@@ -124,7 +125,6 @@ function App() {
         [currentColor]: (prevCounts[currentColor] || 0) + 1,
       }));
 
-      setCooldown(true);
       db.ref(`cells/${userId}`).push({
         row,
         col,
@@ -135,7 +135,24 @@ function App() {
         return (currentCount || 0) + 1;
       });
 
-      setCooldown(true);
+      // Не устанавливаем кулдаун и таймер, если уже установлены
+      if (!cooldown) {
+        setCooldown(true);
+        setTimer(10);
+
+        const interval = setInterval(() => {
+          setTimer((prevTimer) => {
+            if (prevTimer > 0) {
+              localStorage.setItem('timer', prevTimer - 1);
+              return prevTimer - 1;
+            } else {
+              clearInterval(interval);
+              setCooldown(false);
+              return 0;
+            }
+          });
+        }, 1000);
+      }
     }
   }
 
@@ -146,7 +163,9 @@ function App() {
           <div
             key={colIndex}
             className="cell"
-            style={{ backgroundColor: cellColor }}
+            style={{
+              backgroundColor: cellColor,
+            }}
             onClick={() => handleCellClick(rowIndex, colIndex)}
           ></div>
         ))}
@@ -165,30 +184,44 @@ function App() {
   ];
 
   return (
-    <div className="App">
-      <div id="color-buttons">
-        {rainbowColors.map((color, index) => (
-          <button
-            key={index}
-            style={{ backgroundColor: color }}
-            onClick={() => setCurrentColor(color)}
-          ></button>
-        ))}
-      </div>
-      <div id="content-container">
-        <div id="color-counts">
-          {usedColors.map((color, index) => (
-            <p key={index}>
-              {color}: {colorCounts[color] || 0}
-            </p>
-          ))}
-        </div>
-        <div id="timer-container">
-          <p>Таймер: {timer} сек.</p>
+    <>
+      <div className="container">
+        <div className="App">
+          <div id="color-buttons">
+            {rainbowColors.map((color, index) => (
+              <button
+                key={index}
+                style={{
+                  backgroundColor: color,
+                  boxShadow:
+                    selectedColor === color
+                      ? '0px 5px 24px -5px rgba(0, 0, 0,1)'
+                      : 'none',
+                }}
+                onClick={() => {
+                  setCurrentColor(color);
+                  setSelectedColor(color);
+                }}
+              ></button>
+            ))}
+          </div>
+          <div id="timer">Таймер: {timer} сек.</div>
+          <div id="content-container">
+            <div
+              id="color-counts"
+              style={{ height: '300px', overflowY: 'scroll' }}
+            >
+              {[...usedColors].map((color, index) => (
+                <p key={index}>
+                  {color}: {colorCounts[color] || 0}
+                </p>
+              ))}
+            </div>
+          </div>
         </div>
         <div id="grid-container">{renderGrid()}</div>
       </div>
-    </div>
+    </>
   );
 }
 

@@ -1,11 +1,22 @@
-/* Стили для кнопок */
+@import url('https://fonts.googleapis.com/css2?family=Montserrat&display=swap');
+
+*{
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 400;
+}
+
+.container{
+    margin: 0 auto;
+    max-width: 1400px;
+}
+
 #color-buttons {
     text-align: center;
     position: absolute;
     top: 0;
     left: 0;
     right: 0;
-    margin-top: 20px; /* Расстояние от верхнего края */
+    margin-top: 20px;
 }
 
 button {
@@ -17,34 +28,28 @@ button {
     border-radius: 50%;
 }
 
-/* Стили для сетки и клеток остаются без изменений */
 #grid-container {
     display: grid;
-    grid-template-columns: repeat(50, 10px);
-    grid-template-rows: repeat(50, 10px);
+    grid-template-columns: repeat(200, 10px);
+    grid-template-rows: repeat(200, 10px);
     gap: 1px;
-    border: 1px solid #000;
-    margin: 10px;
+    border: 1px solid black;
+    margin-top: 20px;
 }
 
 .cell {
     width: 10px;
     height: 10px;
-    border: 1px solid black;
     background-color: white;
-    margin: 0;
+    margin: 0 auto;
     padding: 0;
-    float: left; /* Добавляем float для корректного отображения клеток */
+    float: left; 
 }
 
-.green {
-    background-color: green;
+.App{
+    margin-top: 80px;
 }
 
-.red {
-    background-color: red;
-}
-
-.blue {
-    background-color: blue;
+#timer{
+    font-size: 24px;
 }
