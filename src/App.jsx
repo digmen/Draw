@@ -9,32 +9,7 @@ function App() {
   const [usedColors, setUsedColors] = useState(new Set()); // Для хранения цветов, которые были использованы
   const [userId, setUserId] = useState(getUserId());
   const [cooldown, setCooldown] = useState(false);
-  const [timer, setTimer] = useState(
-    parseInt(localStorage.getItem('timer')) || 0
-  );
   const [selectedColor, setSelectedColor] = useState('');
-
-  useEffect(() => {
-    const timerFromStorage = localStorage.getItem('timer'); // Получаем значение таймера из localStorage
-    if (timerFromStorage !== null) {
-      setTimer(parseInt(timerFromStorage)); // Устанавливаем таймер из localStorage
-    }
-  }, []);
-
-  useEffect(() => {
-    if (timer > 0 && cooldown) {
-      const interval = setInterval(() => {
-        setTimer((prevTimer) => {
-          localStorage.setItem('timer', prevTimer - 1);
-          return prevTimer - 1;
-        });
-      }, 1000);
-
-      return () => {
-        clearInterval(interval);
-      };
-    }
-  }, [timer, cooldown]);
 
   useEffect(() => {
     const cellsRef = db.ref('cells');
@@ -99,8 +74,8 @@ function App() {
   }, [setColorCounts]);
 
   function createEmptyGrid() {
-    const rows = 127;
-    const cols = 134;
+    const rows = 140;
+    const cols = 200;
     const emptyGrid = [];
 
     for (let i = 0; i < rows; i++) {
@@ -134,25 +109,6 @@ function App() {
       db.ref(`colors/${currentColor}`).transaction((currentCount) => {
         return (currentCount || 0) + 1;
       });
-
-      // Не устанавливаем кулдаун и таймер, если уже установлены
-      if (!cooldown) {
-        setCooldown(true);
-        setTimer(10);
-
-        const interval = setInterval(() => {
-          setTimer((prevTimer) => {
-            if (prevTimer > 0) {
-              localStorage.setItem('timer', prevTimer - 1);
-              return prevTimer - 1;
-            } else {
-              clearInterval(interval);
-              setCooldown(false);
-              return 0;
-            }
-          });
-        }, 1000);
-      }
     }
   }
 
@@ -205,7 +161,6 @@ function App() {
               ></button>
             ))}
           </div>
-          <div id="timer">Таймер: {timer} сек.</div>
           <div id="content-container">
             <div
               id="color-counts"

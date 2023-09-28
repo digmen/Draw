@@ -30,9 +30,9 @@ button {
 
 #grid-container {
     display: grid;
-    grid-template-columns: repeat(200, 10px);
+    padding: 1px;
+    grid-template-columns: repeat(140, 10px);
     grid-template-rows: repeat(200, 10px);
-    gap: 1px;
     border: 1px solid black;
     margin-top: 20px;
 }
@@ -44,12 +44,9 @@ button {
     margin: 0 auto;
     padding: 0;
     float: left; 
+    
 }
 
 .App{
     margin-top: 80px;
-}
-
-#timer{
-    font-size: 24px;
 }
